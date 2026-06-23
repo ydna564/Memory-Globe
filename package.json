@@ -20,11 +20,13 @@
     ],
     "mac": {
       "category": "public.app-category.lifestyle",
+      "icon": "build/icon.icns",
       "target": [
         "dmg"
       ]
     },
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         "nsis"
       ]

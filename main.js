@@ -1,5 +1,7 @@
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, shell, nativeImage } = require('electron');
 const path = require('path');
+
+const iconPath = path.join(__dirname, 'build', 'icon.png');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -9,6 +11,7 @@ function createWindow() {
     minHeight: 560,
     backgroundColor: '#000000',
     title: 'Global Memories',
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -29,6 +32,11 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // Set the dock icon on macOS (relevant when running unpackaged via `npm start`)
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(nativeImage.createFromPath(iconPath));
+  }
+
   createWindow();
 
   app.on('activate', () => {
