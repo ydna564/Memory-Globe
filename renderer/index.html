@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Global Memories</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.4/dist/gsap.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+        body {
+            overflow: hidden;
+            background-color: #000;
+            background-image: radial-gradient(circle at 50% 50%, #0a0a12 0%, #000 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: white;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .pointer-events-auto {
+            pointer-events: auto;
+        }
+        
+        /* Glassmorphism modals */
+        .glass-panel {
+            background: linear-gradient(135deg, rgba(15, 15, 20, 0.6) 0%, rgba(5, 5, 10, 0.8) 100%);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 243, 255, 0.15);
+            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+
+        /* Custom Scrollbar for images */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        .photo-card img {
+            object-fit: cover;
+            width: 100%;
+            height: 100%;
+            border-radius: 0.5rem;
+            transition: transform 0.3s ease;
+        }
+        
+        /* Loading spinner */
+        .loader {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            border-top: 3px solid #ef4444;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Circular Gallery */
+        #circular-gallery {
+            touch-action: none;
+            user-select: none;
+            -webkit-user-drag: none;
+            perspective: 1000px;
+            transform-style: preserve-3d;
+        }
+        #gallery-track {
+            transform-style: preserve-3d;
+        }
+        .gallery-item {
+            position: absolute;
+            width: 180px;
+            height: 240px;
+            left: 50%;
+            top: 50%;
+            margin-left: -90px;
+            margin-top: -120px;
+            transform-origin: center center;
+            will-change: transform, opacity;
+            border-radius: 12px;
+            overflow: hidden;
+            background: linear-gradient(135deg, rgba(20, 20, 25, 0.95) 0%, rgba(5, 5, 10, 0.95) 100%);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            box-shadow: 0 15px 35px -10px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            pointer-events: none;
+        }
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            pointer-events: none;
+        }
+        .gallery-note {
+            padding: 20px;
+            color: #e2e8f0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            font-style: italic;
+            height: 100%;
+            overflow-y: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        /* Input file styling */
+        input[type="file"] {
+            display: none;
+        }
+        .file-upload-label {
+            display: inline-block;
+            padding: 12px 24px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            transition: all 0.2s;
+            text-align: center;
+            width: 100%;
+        }
+        .file-upload-label:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+    </style>
+    <!-- Import Maps for Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Layer -->
+    <div id="ui-layer">
+        <!-- Labels Container -->
+        <div id="labels-container" class="absolute inset-0 pointer-events-none overflow-hidden z-0"></div>
+        <!-- Header -->
+        <div class="p-6 pointer-events-auto flex justify-between items-start w-full bg-gradient-to-b from-black/60 to-transparent">
+            <div>
+                <h1 class="text-xl font-light tracking-widest text-white drop-shadow-lg"><span class="text-[#00f3ff] font-bold">GLOBAL</span> MEMORIES</h1>
+                <p class="text-xs text-gray-300 mt-1 font-light tracking-wide opacity-80">Select a coordinate to immortalize a memory.</p>
+                
+                <!-- Search Bar -->
+                <div class="relative mt-3 w-full max-w-xs pointer-events-auto">
+                    <div class="flex items-center bg-black/40 border border-[#00f3ff]/30 rounded-full overflow-hidden backdrop-blur-md shadow-[0_0_10px_rgba(0,243,255,0.1)] focus-within:border-[#00f3ff]/70 transition-colors">
+                        <i class="fa-solid fa-magnifying-glass text-[#00f3ff] pl-3 pr-2 text-xs"></i>
+                        <input type="text" id="search-input" placeholder="Search a precise location..." class="w-full bg-transparent text-white text-xs py-1.5 px-2 outline-none placeholder-gray-400">
+                        <button id="search-btn" class="bg-[#00f3ff]/20 hover:bg-[#00f3ff]/40 text-[#00f3ff] px-4 py-1.5 text-xs font-medium transition-colors border-l border-[#00f3ff]/30 tracking-wider">GO</button>
+                    </div>
+                    <div id="search-results" class="absolute top-full left-0 w-full mt-2 bg-black/80 border border-white/10 rounded-lg overflow-hidden backdrop-blur-md hidden flex-col max-h-60 overflow-y-auto custom-scrollbar z-50 shadow-2xl">
+                        <!-- Results will be injected here -->
+                    </div>
+                </div>
+            </div>
+            <div id="loading-indicator" class="hidden items-center gap-3 bg-white/5 border border-white/10 px-5 py-2.5 rounded-full backdrop-blur-md shadow-[0_0_15px_rgba(0,243,255,0.2)]">
+                <div class="loader !border-t-[#00f3ff]"></div>
+                <span class="text-sm tracking-wider text-[#00f3ff]">Synchronizing...</span>
+            </div>
+        </div>
+
+        <!-- Add Memory Modal (Hidden) -->
+        <div id="modal-add" class="hidden absolute inset-0 flex items-center justify-center pointer-events-auto z-50 bg-black/40 backdrop-blur-sm transition-opacity duration-300 opacity-0">
+            <div class="glass-panel p-6 rounded-2xl w-11/12 max-w-sm transform scale-95 transition-transform duration-300" id="modal-add-content">
+                <div class="flex justify-between items-center mb-5 border-b border-white/10 pb-3">
+                    <h2 class="text-lg font-light tracking-widest text-white"><i class="fa-solid fa-location-crosshairs text-[#00f3ff] mr-2"></i>DEPOSIT MEMORY</h2>
+                    <button id="btn-close-add" class="text-gray-400 hover:text-[#00f3ff] transition-colors">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+                
+                <div class="mb-5 bg-black/30 rounded-lg p-3 border border-white/5 flex items-center gap-3">
+                    <i class="fa-solid fa-map-location-dot text-[#00f3ff]/70 text-lg"></i>
+                    <p id="add-location-text" class="text-sm text-[#00f3ff] font-medium tracking-wide">Scanning coordinates...</p>
+                </div>
+                
+                <p class="text-sm text-gray-300 mb-6">Select a photo to store at this specific location on the globe.</p>
+                
+                <label class="file-upload-label mb-4">
+                    <i class="fa-solid fa-cloud-arrow-up text-2xl mb-2 block text-gray-400"></i>
+                    <span id="file-name-display">Choose an image...</span>
+                    <input type="file" id="photo-input" accept="image/*">
+                </label>
+                
+                <div id="preview-container" class="hidden mb-4 w-full h-32 rounded-lg overflow-hidden border border-gray-600">
+                    <img id="photo-preview" src="" alt="Preview" class="w-full h-full object-cover">
+                </div>
+
+                <textarea id="note-input" class="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#00f3ff]/50 transition-colors mb-4 resize-none custom-scrollbar" rows="3" placeholder="Write a memory note..."></textarea>
+
+                <button id="btn-save-memory" class="w-full py-3 mt-2 bg-[#00f3ff]/10 hover:bg-[#00f3ff]/20 border border-[#00f3ff]/50 text-[#00f3ff] rounded-lg font-medium tracking-wider transition-all disabled:opacity-30 disabled:border-gray-600 disabled:text-gray-500 disabled:cursor-not-allowed hover:shadow-[0_0_15px_rgba(0,243,255,0.4)]" disabled>
+                    IMMORTALIZE
+                </button>
+            </div>
+        </div>
+
+        <!-- View Memory Modal (Hidden) -->
+        <div id="modal-view" class="hidden absolute inset-0 flex items-center justify-center pointer-events-auto z-50 bg-black/60 backdrop-blur-sm transition-opacity duration-300 opacity-0">
+            <div class="glass-panel p-6 rounded-2xl w-11/12 max-w-md h-[550px] max-h-[80vh] flex flex-col transform scale-95 transition-transform duration-300" id="modal-view-content">
+                <div class="flex justify-between items-center mb-5 border-b border-white/10 pb-3 shrink-0">
+                    <h2 class="text-lg font-light tracking-widest text-white"><i class="fa-solid fa-layer-group text-[#00f3ff] mr-2"></i>ARCHIVES</h2>
+                    <button id="btn-close-view" class="text-gray-400 hover:text-[#00f3ff] transition-colors">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+                
+                <p id="view-location-text" class="text-sm text-[#00f3ff] mb-4 font-medium tracking-wide"><i class="fa-solid fa-location-dot mr-2"></i>Location</p>
+                
+                <div id="circular-gallery" class="relative flex-1 w-full my-2 overflow-hidden cursor-grab active:cursor-grabbing">
+                    <div id="gallery-track" class="absolute top-0 left-0 w-full h-full">
+                        <!-- Gallery items will be injected here -->
+                    </div>
+                </div>
+                
+                <div class="mt-2 pt-3 border-t border-white/10 shrink-0 flex items-center justify-between">
+                    <p class="text-xs text-[#00f3ff]/60 tracking-widest uppercase"><i class="fa-solid fa-arrows-left-right mr-2"></i>Drag to browse</p>
+                    <button id="btn-delete-memory" class="text-xs text-red-400/70 hover:text-red-400 tracking-widest uppercase transition-colors">
+                        <i class="fa-solid fa-trash-can mr-1"></i>Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer Removed -->
+    </div>
+
+    <!-- Application Logic -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // --- Application State ---
+        const state = {
+            memories: [], // Array of { id, position: Vector3, photos: [dataURL] }
+            currentClickPosition: null,
+            selectedMarkerId: null,
+            isDragging: false,
+            pointerDownPos: new THREE.Vector2(),
+            markerMeshes: [],
+            earthRadius: 5,
+            gallery: {
+                items: [],
+                targetScroll: 0,
+                currentScroll: 0,
+                spacing: 200,
+                isDragging: false,
+                startX: 0,
+                startScroll: 0
+            }
+        };
+
+        // --- Mock Data ---
+        // Pre-populate some memories to make it look alive
+        const mockImages = [
+            'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=400&q=80', // Paris
+            'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=400&q=80', // Venice
+            'https://images.unsplash.com/photo-1480796927426-f609979314bd?auto=format&fit=crop&w=400&q=80'  // Tokyo
+        ];
+
+        // Helper to convert Vector3 to Lat/Lon
+        function vector3ToLatLon(position) {
+            const r = position.length();
+            const phi = Math.acos(position.y / r);
+            const theta = Math.atan2(position.z, -position.x);
+            const lat = 90 - (phi * 180 / Math.PI);
+            let lon = (theta * 180 / Math.PI) - 180;
+            while(lon < -180) lon += 360;
+            while(lon > 180) lon -= 360;
+            return { lat, lon };
+        }
+
+        // Fetch location name from coordinates
+        async function fetchLocationName(lat, lon) {
+            try {
+                const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+                const data = await res.json();
+                if (data.city && data.countryName) return `${data.city}, ${data.countryName}`;
+                if (data.countryName) return data.countryName;
+                if (data.locality) return data.locality;
+                return `Ocean Coordinates (${lat.toFixed(1)}°, ${lon.toFixed(1)}°)`;
+            } catch(e) {
+                return `Coordinates: ${lat.toFixed(2)}°, ${lon.toFixed(2)}°`;
+            }
+        }
+
+        // Helper to convert Lat/Lon to Vector3
+        function latLonToVector3(lat, lon, radius) {
+            var phi = (90 - lat) * (Math.PI / 180);
+            var theta = (lon + 180) * (Math.PI / 180);
+            var x = -(radius * Math.sin(phi) * Math.cos(theta));
+            var z = (radius * Math.sin(phi) * Math.sin(theta));
+            var y = (radius * Math.cos(phi));
+            return new THREE.Vector3(x, y, z);
+        }
+
+        // --- Persistence (IndexedDB) ---
+        // Photos are stored as base64 data URLs which can be several MB each,
+        // so IndexedDB is used instead of localStorage to avoid quota limits.
+        const DB_NAME = 'globalMemoriesDB';
+        const STORE = 'memories';
+        let _dbPromise = null;
+        function openDB() {
+            if (_dbPromise) return _dbPromise;
+            _dbPromise = new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME, 1);
+                req.onupgradeneeded = () => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains(STORE)) {
+                        db.createObjectStore(STORE, { keyPath: 'id' });
+                    }
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+            return _dbPromise;
+        }
+        async function dbPut(record) {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE, 'readwrite');
+                tx.objectStore(STORE).put(record);
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+        async function dbGetAll() {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE, 'readonly');
+                const req = tx.objectStore(STORE).getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+            });
+        }
+        async function dbDelete(id) {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE, 'readwrite');
+                tx.objectStore(STORE).delete(id);
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        // --- Three.js Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        
+        // Camera
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 5, 28); // Zoomed out perspective
+
+        // Renderer
+        const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        container.appendChild(renderer.domElement);
+
+        // Post-processing (Bloom)
+        const renderScene = new RenderPass(scene, camera);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0.6;
+        bloomPass.strength = 1.2;
+        bloomPass.radius = 0.6;
+        
+        const composer = new EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        // Controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 6;
+        controls.maxDistance = 45; // Allow zooming out further
+        controls.enablePan = false;
+        controls.target.set(0, -4.5, 0); // Shift orbit center down
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        directionalLight.position.set(10, 8, 5);
+        scene.add(directionalLight);
+        
+        // Add a secondary light for the dark side
+        const backLight = new THREE.DirectionalLight(0x00f3ff, 0.2);
+        backLight.position.set(-10, -5, -10);
+        scene.add(backLight);
+
+        // --- Earth Setup ---
+        const masterGroup = new THREE.Group();
+        masterGroup.position.y = -4.5; // Move the entire globe down
+        scene.add(masterGroup);
+
+        const earthGroup = new THREE.Group();
+        masterGroup.add(earthGroup);
+
+        const loadingIndicator = document.getElementById('loading-indicator');
+        loadingIndicator.classList.remove('hidden');
+        loadingIndicator.classList.add('flex');
+
+        // Safety fallback: if textures take too long or fail, force initialization
+        let isDataInitialized = false;
+        setTimeout(() => {
+            if (!isDataInitialized) {
+                isDataInitialized = true;
+                loadingIndicator.classList.add('hidden');
+                loadingIndicator.classList.remove('flex');
+                loadMemories();
+            }
+        }, 8000);
+
+        const textureLoader = new THREE.TextureLoader();
+        textureLoader.setCrossOrigin('anonymous');
+        
+        // High-res earth map
+        const earthMapUrl = 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg';
+        const earthBumpUrl = 'https://unpkg.com/three-globe/example/img/earth-topology.png';
+        const earthWaterUrl = 'https://unpkg.com/three-globe/example/img/earth-water.png';
+        const cloudsUrl = 'https://unpkg.com/three-globe/example/img/earth-clouds10k.png';
+
+        const earthGeometry = new THREE.SphereGeometry(state.earthRadius, 64, 64);
+        
+        // Wrap texture loader to resolve with null instead of hanging on error
+        const loadTex = (url) => new Promise(res => {
+            textureLoader.load(url, res, undefined, () => res(null));
+        });
+
+        Promise.all([
+            loadTex(earthMapUrl),
+            loadTex(earthBumpUrl),
+            loadTex(earthWaterUrl),
+            loadTex(cloudsUrl)
+        ]).then(([map, bumpMap, specularMap, cloudsMap]) => {
+            const earthMaterial = new THREE.MeshPhongMaterial({
+                map: map,
+                bumpMap: bumpMap,
+                bumpScale: 0.15,
+                specularMap: specularMap,
+                specular: new THREE.Color(0x333333),
+                shininess: 15,
+                color: map ? 0xffffff : 0x001133 // Fallback color if map fails
+            });
+            const earthMesh = new THREE.Mesh(earthGeometry, earthMaterial);
+            earthMesh.name = "Earth";
+            earthGroup.add(earthMesh);
+            
+            // Add clouds
+            const cloudGeometry = new THREE.SphereGeometry(state.earthRadius * 1.006, 64, 64);
+            const cloudMaterial = new THREE.MeshPhongMaterial({
+                map: cloudsMap,
+                transparent: true,
+                opacity: cloudsMap ? 0.8 : 0, // Hide clouds if texture fails
+                blending: THREE.AdditiveBlending,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const cloudMesh = new THREE.Mesh(cloudGeometry, cloudMaterial);
+            earthGroup.add(cloudMesh);
+            state.cloudMesh = cloudMesh;
+            
+            // Atmosphere removed as requested
+
+            loadingIndicator.classList.add('hidden');
+            loadingIndicator.classList.remove('flex');
+            
+            // Load saved memories after earth is ready
+            if (!isDataInitialized) {
+                isDataInitialized = true;
+                loadMemories();
+            }
+        });
+
+        // --- Starfield Background ---
+        const starsGeometry = new THREE.BufferGeometry();
+        const starsCount = 12000; // Increased for a denser starfield
+        const posArray = new Float32Array(starsCount * 3);
+        const colorsArray = new Float32Array(starsCount * 3);
+        
+        for(let i = 0; i < starsCount * 3; i+=3) {
+            // Spherical distribution for better immersion
+            const radius = 40 + Math.random() * 120;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(Math.random() * 2 - 1);
+            
+            posArray[i] = radius * Math.sin(phi) * Math.cos(theta);
+            posArray[i+1] = radius * Math.sin(phi) * Math.sin(theta);
+            posArray[i+2] = radius * Math.cos(phi);
+            
+            // Subtle color variations (white, slight blue, slight yellow)
+            const colorType = Math.random();
+            if (colorType > 0.9) {
+                colorsArray[i] = 0.5; colorsArray[i+1] = 0.8; colorsArray[i+2] = 1.0; // Blueish
+            } else if (colorType > 0.8) {
+                colorsArray[i] = 1.0; colorsArray[i+1] = 0.9; colorsArray[i+2] = 0.5; // Yellowish
+            } else {
+                colorsArray[i] = 1.0; colorsArray[i+1] = 1.0; colorsArray[i+2] = 1.0; // White
+            }
+        }
+        
+        starsGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        starsGeometry.setAttribute('color', new THREE.BufferAttribute(colorsArray, 3));
+        
+        const starsMaterial = new THREE.PointsMaterial({
+            size: 0.12,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.9,
+            sizeAttenuation: true
+        });
+        const starMesh = new THREE.Points(starsGeometry, starsMaterial);
+        scene.add(starMesh);
+
+        // --- Interaction Logic (Raycasting) ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        renderer.domElement.addEventListener('pointerdown', (e) => {
+            state.isDragging = false;
+            state.pointerDownPos.set(e.clientX, e.clientY);
+        });
+
+        renderer.domElement.addEventListener('pointermove', (e) => {
+            // If moved more than a few pixels, consider it a drag
+            if (state.pointerDownPos.distanceTo(new THREE.Vector2(e.clientX, e.clientY)) > 5) {
+                state.isDragging = true;
+            }
+        });
+
+        renderer.domElement.addEventListener('pointerup', (e) => {
+            if (state.isDragging) return; // Ignore if user was rotating globe
+
+            // Calculate mouse position in normalized device coordinates
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+
+            // 1. Check if clicked a marker first
+            const markerIntersects = raycaster.intersectObjects(state.markerMeshes);
+            if (markerIntersects.length > 0) {
+                const clickedMarker = markerIntersects[0].object;
+                openViewModal(clickedMarker.userData.id);
+                return;
+            }
+
+            // 2. Check if clicked the Earth
+            const earthIntersects = raycaster.intersectObjects(earthGroup.children);
+            if (earthIntersects.length > 0) {
+                const intersect = earthIntersects.find(i => i.object.name === "Earth");
+                if (intersect) {
+                    // Convert world point to earthGroup local space so it sticks to the rotating earth
+                    state.currentClickPosition = earthGroup.worldToLocal(intersect.point.clone());
+                    openAddModal();
+                }
+            }
+        });
+
+        // --- Marker Creation ---
+        function createMarkerMesh(position, id, locationName) {
+            const group = new THREE.Group();
+            group.position.copy(position);
+            
+            // Align marker to point outward from center
+            group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), position.clone().normalize());
+
+            // Holographic Beam
+            const beamGeo = new THREE.CylinderGeometry(0.01, 0.04, 1.2, 16);
+            beamGeo.translate(0, 0.6, 0);
+            const beamMat = new THREE.MeshBasicMaterial({
+                color: 0x00f3ff,
+                transparent: true,
+                opacity: 0.5,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const beam = new THREE.Mesh(beamGeo, beamMat);
+            
+            // Floating Core Orb
+            const orbGeo = new THREE.SphereGeometry(0.06, 16, 16);
+            const orbMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const orb = new THREE.Mesh(orbGeo, orbMat);
+            orb.position.y = 1.3;
+            
+            // Orb Glow
+            const glowGeo = new THREE.SphereGeometry(0.18, 16, 16);
+            const glowMat = new THREE.MeshBasicMaterial({ 
+                color: 0x00f3ff, 
+                transparent: true, 
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const glow = new THREE.Mesh(glowGeo, glowMat);
+            glow.position.y = 1.3;
+
+            // Hidden Hitbox for easier clicking (invisible to eye, visible to raycaster)
+            const hitGeo = new THREE.CylinderGeometry(0.25, 0.25, 1.5, 8);
+            hitGeo.translate(0, 0.75, 0);
+            const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+            const hitBox = new THREE.Mesh(hitGeo, hitMat);
+            hitBox.userData = { id: id };
+
+            group.add(beam);
+            group.add(orb);
+            group.add(glow);
+            group.add(hitBox);
+
+            // Create HTML Label
+            const label = document.createElement('div');
+            label.className = 'absolute text-xs font-medium tracking-wider text-white bg-black/60 border border-[#00f3ff]/30 px-2 py-1 rounded backdrop-blur-sm whitespace-nowrap transition-opacity duration-300';
+            label.style.transform = 'translate(-50%, -50%)';
+            label.innerHTML = `<i class="fa-solid fa-location-dot text-[#00f3ff] mr-1"></i>${locationName || 'Unknown'}`;
+            document.getElementById('labels-container').appendChild(label);
+
+            // Store references for animation
+            group.userData = { 
+                orb: orb, 
+                glow: glow, 
+                initialY: 1.3, 
+                randomOffset: Math.random() * Math.PI * 2,
+                label: label
+            };
+
+            earthGroup.add(group);
+            state.markerMeshes.push(hitBox); 
+            
+            // Animate appearance
+            group.scale.set(0,0,0);
+            let s = 0;
+            const animateIn = () => {
+                s += 0.05;
+                if(s <= 1) {
+                    group.scale.set(s,s,s);
+                    requestAnimationFrame(animateIn);
+                } else {
+                    group.scale.set(1,1,1);
+                }
+            };
+            animateIn();
+            
+            return group;
+        }
+
+        function addMemory(position, photoDataUrl, noteText, locationName, opts = {}) {
+            const id = opts.id || Date.now().toString();
+
+            // Create 3D marker
+            createMarkerMesh(position, id, locationName);
+
+            // Store data
+            const memory = {
+                id: id,
+                position: position.clone(),
+                photos: opts.photos ? opts.photos.slice() : (photoDataUrl ? [photoDataUrl] : []),
+                note: noteText || "",
+                locationName: locationName || 'Unknown Location'
+            };
+            state.memories.push(memory);
+
+            // Persist to IndexedDB (skip when re-hydrating from storage)
+            if (opts.persist !== false) {
+                dbPut({
+                    id: memory.id,
+                    position: { x: position.x, y: position.y, z: position.z },
+                    photos: memory.photos,
+                    note: memory.note,
+                    locationName: memory.locationName
+                }).catch(err => console.warn('Failed to persist memory:', err));
+            }
+
+            return memory;
+        }
+
+        // Load saved memories from IndexedDB; seed mock data only on first run.
+        async function loadMemories() {
+            let saved = [];
+            try {
+                saved = await dbGetAll();
+            } catch (err) {
+                console.warn('Failed to load memories:', err);
+            }
+
+            if (saved && saved.length > 0) {
+                saved.forEach(m => {
+                    const pos = new THREE.Vector3(m.position.x, m.position.y, m.position.z);
+                    addMemory(pos, null, m.note, m.locationName, {
+                        id: m.id,
+                        photos: m.photos || [],
+                        persist: false
+                    });
+                });
+            } else {
+                initMockData();
+            }
+        }
+
+        function initMockData() {
+            // Paris
+            const p1 = latLonToVector3(48.8566, 2.3522, state.earthRadius);
+            addMemory(p1, mockImages[0], "A beautiful evening near the Eiffel Tower. The lights were mesmerizing.", "Paris, France");
+            
+            // Tokyo
+            const p2 = latLonToVector3(35.6762, 139.6503, state.earthRadius);
+            addMemory(p2, mockImages[2], "Lost in the neon streets of Shinjuku. Unforgettable energy.", "Tokyo, Japan");
+            
+            // New York
+            const p3 = latLonToVector3(40.7128, -74.0060, state.earthRadius);
+            addMemory(p3, mockImages[1], "A sunny afternoon walking through Central Park.", "New York, United States");
+        }
+
+        // --- UI Logic ---
+        const modalAdd = document.getElementById('modal-add');
+        const modalAddContent = document.getElementById('modal-add-content');
+        const modalView = document.getElementById('modal-view');
+        const modalViewContent = document.getElementById('modal-view-content');
+        
+        const photoInput = document.getElementById('photo-input');
+        const fileNameDisplay = document.getElementById('file-name-display');
+        const previewContainer = document.getElementById('preview-container');
+        const photoPreview = document.getElementById('photo-preview');
+        const btnSaveMemory = document.getElementById('btn-save-memory');
+        const addLocationText = document.getElementById('add-location-text');
+        const viewLocationText = document.getElementById('view-location-text');
+        const noteInput = document.getElementById('note-input');
+
+        let currentUploadedDataUrl = null;
+        let currentTempLocationName = "Unknown Location";
+        
+        function checkSaveButtonState() {
+            if (currentUploadedDataUrl || noteInput.value.trim() !== '') {
+                btnSaveMemory.disabled = false;
+            } else {
+                btnSaveMemory.disabled = true;
+            }
+        }
+
+        // Open Add Modal
+        async function openAddModal(predefinedName = null) {
+            controls.enabled = false; // Disable globe rotation while UI is open
+            
+            // Reset form
+            photoInput.value = '';
+            fileNameDisplay.textContent = 'Choose an image...';
+            previewContainer.classList.add('hidden');
+            noteInput.value = '';
+            btnSaveMemory.disabled = true;
+            currentUploadedDataUrl = null;
+            
+            if (predefinedName) {
+                currentTempLocationName = predefinedName;
+                addLocationText.innerHTML = `<i class="fa-solid fa-satellite-dish mr-2"></i>${currentTempLocationName}`;
+            } else {
+                addLocationText.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Scanning coordinates...';
+            }
+
+            modalAdd.classList.remove('hidden');
+            // Small delay to allow display:block to apply before animating opacity
+            setTimeout(() => {
+                modalAdd.classList.remove('opacity-0');
+                modalAddContent.classList.remove('scale-95');
+                modalAddContent.classList.add('scale-100');
+            }, 10);
+
+            // Fetch location name based on clicked coordinate if no predefined name
+            if (state.currentClickPosition && !predefinedName) {
+                const coords = vector3ToLatLon(state.currentClickPosition);
+                currentTempLocationName = await fetchLocationName(coords.lat, coords.lon);
+                addLocationText.innerHTML = `<i class="fa-solid fa-satellite-dish mr-2"></i>${currentTempLocationName}`;
+            }
+        }
+
+        // --- Search Functionality ---
+        const searchInput = document.getElementById('search-input');
+        const searchBtn = document.getElementById('search-btn');
+        const searchResults = document.getElementById('search-results');
+
+        async function performSearch() {
+            const query = searchInput.value.trim();
+            if(!query) return;
+            
+            searchBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            
+            try {
+                // Using Open-Meteo Geocoding API (Free, no API key required, highly reliable)
+                const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=en&format=json`);
+                const data = await res.json();
+                
+                searchResults.innerHTML = '';
+                if(!data.results || data.results.length === 0) {
+                    searchResults.innerHTML = '<div class="p-3 text-sm text-gray-400 text-center">No precise location found</div>';
+                } else {
+                    data.results.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'p-3 text-sm text-gray-200 hover:bg-[#00f3ff]/20 hover:text-[#00f3ff] cursor-pointer border-b border-white/5 last:border-0 transition-colors flex items-center';
+                        
+                        // Format name beautifully (e.g., "London, England, United Kingdom")
+                        const nameParts = [item.name, item.admin1, item.country].filter(Boolean);
+                        // Remove duplicates (sometimes name and admin1 are the same)
+                        const uniqueParts = [...new Set(nameParts)];
+                        const shortName = uniqueParts.join(', ');
+                        
+                        div.innerHTML = `<i class="fa-solid fa-location-crosshairs text-[#00f3ff]/70 mr-3"></i><span class="truncate">${shortName}</span>`;
+                        div.addEventListener('click', () => {
+                            selectLocation(parseFloat(item.latitude), parseFloat(item.longitude), shortName);
+                            searchResults.classList.add('hidden');
+                            searchInput.value = '';
+                        });
+                        searchResults.appendChild(div);
+                    });
+                }
+                searchResults.classList.remove('hidden');
+            } catch(e) {
+                searchResults.innerHTML = '<div class="p-3 text-sm text-red-400 text-center">Search failed. Try again.</div>';
+                searchResults.classList.remove('hidden');
+            }
+            
+            searchBtn.innerHTML = 'GO';
+        }
+
+        searchBtn.addEventListener('click', performSearch);
+        searchInput.addEventListener('keypress', (e) => {
+            if(e.key === 'Enter') performSearch();
+        });
+        
+        // Hide search results when clicking outside
+        document.addEventListener('pointerdown', (e) => {
+            if(searchInput && searchResults && searchBtn) {
+                if(!searchInput.contains(e.target) && !searchResults.contains(e.target) && !searchBtn.contains(e.target)) {
+                    searchResults.classList.add('hidden');
+                }
+            }
+        });
+
+        function selectLocation(lat, lon, name) {
+            // Convert coordinate to Vector3 on the globe (local space)
+            const pos = latLonToVector3(lat, lon, state.earthRadius);
+            
+            // Calculate target camera position based on rotated earth and shifted center
+            const worldPos = earthGroup.localToWorld(pos.clone());
+            const currentDist = camera.position.distanceTo(controls.target);
+            const worldDir = worldPos.clone().sub(controls.target).normalize();
+            const targetCamPos = worldDir.multiplyScalar(currentDist).add(controls.target);
+            
+            // Disable interactions during flight
+            controls.enabled = false;
+            
+            // GSAP Camera Fly-to Animation
+            gsap.to(camera.position, {
+                x: targetCamPos.x,
+                y: targetCamPos.y,
+                z: targetCamPos.z,
+                duration: 1.2,
+                ease: "power3.inOut",
+                onUpdate: () => {
+                    controls.update(); // Keeps camera looking at the center
+                },
+                onComplete: () => {
+                    controls.enabled = true;
+                    state.currentClickPosition = pos;
+                    openAddModal(name);
+                }
+            });
+        }
+
+        // Close Add Modal
+        document.getElementById('btn-close-add').addEventListener('click', () => {
+            modalAdd.classList.add('opacity-0');
+            modalAddContent.classList.remove('scale-100');
+            modalAddContent.classList.add('scale-95');
+            setTimeout(() => {
+                modalAdd.classList.add('hidden');
+                controls.enabled = true;
+            }, 300);
+        });
+
+        // Handle File Selection
+        photoInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                fileNameDisplay.textContent = file.name;
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    currentUploadedDataUrl = event.target.result;
+                    photoPreview.src = currentUploadedDataUrl;
+                    previewContainer.classList.remove('hidden');
+                    checkSaveButtonState();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Handle Note Input
+        noteInput.addEventListener('input', checkSaveButtonState);
+
+        // Save Memory
+        btnSaveMemory.addEventListener('click', () => {
+            if ((currentUploadedDataUrl || noteInput.value.trim() !== '') && state.currentClickPosition) {
+                addMemory(state.currentClickPosition, currentUploadedDataUrl, noteInput.value.trim(), currentTempLocationName);
+                document.getElementById('btn-close-add').click(); // trigger close animation
+            }
+        });
+
+        const circularGallery = document.getElementById('circular-gallery');
+        const galleryTrack = document.getElementById('gallery-track');
+
+        // Circular Gallery Interaction
+        circularGallery.addEventListener('pointerdown', (e) => {
+            state.gallery.isDragging = true;
+            state.gallery.startX = e.clientX;
+            state.gallery.startScroll = state.gallery.targetScroll;
+            circularGallery.setPointerCapture(e.pointerId);
+        });
+        
+        circularGallery.addEventListener('pointermove', (e) => {
+            if (!state.gallery.isDragging) return;
+            const deltaX = e.clientX - state.gallery.startX;
+            state.gallery.targetScroll = state.gallery.startScroll - deltaX * 1.5;
+        });
+        
+        circularGallery.addEventListener('pointerup', (e) => {
+            state.gallery.isDragging = false;
+            circularGallery.releasePointerCapture(e.pointerId);
+        });
+
+        // Open View Modal
+        function openViewModal(memoryId) {
+            controls.enabled = false;
+            state.selectedMarkerId = memoryId;
+            
+            const memory = state.memories.find(m => m.id === memoryId);
+            galleryTrack.innerHTML = ''; // Clear old
+            state.gallery.items = [];
+            state.gallery.targetScroll = 0;
+            state.gallery.currentScroll = 0;
+
+            if (memory) {
+                viewLocationText.innerHTML = `<i class="fa-solid fa-location-dot mr-2"></i>${memory.locationName}`;
+            }
+
+            if (memory && (memory.photos.length > 0 || memory.note)) {
+                const galleryData = [];
+                if (memory.photos.length > 0) {
+                    memory.photos.forEach(photoUrl => galleryData.push({ type: 'photo', content: photoUrl }));
+                }
+                if (memory.note) {
+                    galleryData.push({ type: 'note', content: memory.note });
+                }
+
+                galleryData.forEach((item) => {
+                    const div = document.createElement('div');
+                    div.className = 'gallery-item';
+                    
+                    if (item.type === 'photo') {
+                        const img = document.createElement('img');
+                        img.src = item.content;
+                        if(item.content.startsWith('http')) img.crossOrigin = "anonymous";
+                        div.appendChild(img);
+                    } else if (item.type === 'note') {
+                        const noteDiv = document.createElement('div');
+                        noteDiv.className = 'gallery-note custom-scrollbar';
+                        noteDiv.innerHTML = `<div><i class="fa-solid fa-quote-left text-[#00f3ff]/50 block text-2xl mb-3"></i>${item.content}</div>`;
+                        div.appendChild(noteDiv);
+                    }
+                    
+                    galleryTrack.appendChild(div);
+                    state.gallery.items.push(div);
+                });
+            } else {
+                galleryTrack.innerHTML = '<p class="text-center text-gray-400 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full">No memories found here.</p>';
+            }
+
+            modalView.classList.remove('hidden');
+            setTimeout(() => {
+                modalView.classList.remove('opacity-0');
+                modalViewContent.classList.remove('scale-95');
+                modalViewContent.classList.add('scale-100');
+            }, 10);
+        }
+
+        // Close View Modal
+        document.getElementById('btn-close-view').addEventListener('click', () => {
+            modalView.classList.add('opacity-0');
+            modalViewContent.classList.remove('scale-100');
+            modalViewContent.classList.add('scale-95');
+            setTimeout(() => {
+                modalView.classList.add('hidden');
+                controls.enabled = true;
+            }, 300);
+        });
+
+        // Delete the currently viewed memory (marker + label + storage)
+        document.getElementById('btn-delete-memory').addEventListener('click', () => {
+            const id = state.selectedMarkerId;
+            if (!id) return;
+
+            // Remove the 3D marker group + its HTML label
+            const hitBox = state.markerMeshes.find(h => h.userData && h.userData.id === id);
+            if (hitBox) {
+                const group = hitBox.parent;
+                if (group) {
+                    if (group.userData && group.userData.label) group.userData.label.remove();
+                    earthGroup.remove(group);
+                }
+                state.markerMeshes = state.markerMeshes.filter(h => h !== hitBox);
+            }
+
+            // Remove from state + persistence
+            state.memories = state.memories.filter(m => m.id !== id);
+            dbDelete(id).catch(err => console.warn('Failed to delete memory:', err));
+
+            // Close the modal
+            document.getElementById('btn-close-view').click();
+        });
+
+        // --- Window Resize ---
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- Animation Loop ---
+        const clock = new THREE.Clock();
+        const tempV = new THREE.Vector3();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime();
+
+            // Auto rotation if user isn't interacting and UI isn't open
+            if (controls.enabled && !state.isDragging) {
+                earthGroup.rotation.y += 0.02 * delta;
+                if(state.cloudMesh) state.cloudMesh.rotation.y += 0.025 * delta;
+                starMesh.rotation.y -= 0.005 * delta;
+            }
+
+            // Update Circular Gallery Animation
+            if (state.gallery.items.length > 0 && !modalView.classList.contains('hidden')) {
+                // Clamp scroll
+                const maxScroll = Math.max(0, (state.gallery.items.length - 1) * state.gallery.spacing);
+                if (!state.gallery.isDragging) {
+                    if (state.gallery.targetScroll < 0) state.gallery.targetScroll *= 0.9;
+                    if (state.gallery.targetScroll > maxScroll) state.gallery.targetScroll = maxScroll + (state.gallery.targetScroll - maxScroll) * 0.9;
+                }
+                
+                // Smooth Lerp
+                state.gallery.currentScroll += (state.gallery.targetScroll - state.gallery.currentScroll) * 0.1;
+                
+                const containerWidth = circularGallery.clientWidth || 300;
+                const H = containerWidth / 2;
+                const bend = 40; 
+                const R = (H * H + bend * bend) / (2 * bend);
+                
+                state.gallery.items.forEach((item, i) => {
+                    const itemCenter = i * state.gallery.spacing;
+                    const x = itemCenter - state.gallery.currentScroll;
+                    
+                    // Math for circular bend
+                    const effectiveX = Math.min(Math.abs(x), R * 0.99);
+                    const arc = R - Math.sqrt(R * R - effectiveX * effectiveX);
+                    
+                    const y = arc; // Bend downwards
+                    const rotZ = Math.sign(x) * Math.asin(effectiveX / R) * (180 / Math.PI);
+                    const rotY = Math.sign(x) * (Math.abs(x) / H) * 15;
+                    
+                    const opacity = Math.max(0, 1 - Math.abs(x) / (H * 1.5));
+                    const scale = Math.max(0.8, 1 - Math.abs(x) / (H * 2.5));
+                    
+                    item.style.transform = `translateX(${x}px) translateY(${y}px) translateZ(${-arc}px) rotateZ(${rotZ * 0.3}deg) rotateY(${rotY}deg) scale(${scale})`;
+                    item.style.opacity = opacity;
+                    item.style.zIndex = Math.round(100 - Math.abs(x));
+                });
+            }
+
+            // Animate markers (floating orb effect)
+            state.markerMeshes.forEach(hitBox => {
+                const group = hitBox.parent;
+                if (group.userData && group.userData.orb) {
+                    const offset = group.userData.randomOffset;
+                    const floatY = group.userData.initialY + Math.sin(time * 2 + offset) * 0.1;
+                    group.userData.orb.position.y = floatY;
+                    group.userData.glow.position.y = floatY;
+                    
+                    // Pulse glow
+                    const pulse = 1 + Math.sin(time * 3 + offset) * 0.15;
+                    group.userData.glow.scale.set(pulse, pulse, pulse);
+                    
+                    // Update HTML Label Position
+                    if (group.userData.label) {
+                        tempV.copy(group.position);
+                        // Push point slightly outward so label floats above marker
+                        tempV.add(group.position.clone().normalize().multiplyScalar(2.0)); 
+                        earthGroup.localToWorld(tempV); // Convert to world space
+                        
+                        // Check visibility (is it on the front side of the earth?)
+                        const earthToCam = camera.position.clone().sub(controls.target).normalize();
+                        const markerWorldPos = earthGroup.localToWorld(group.position.clone());
+                        const earthToMarker = markerWorldPos.sub(controls.target).normalize();
+                        // If dot product is > -0.1, it's roughly visible to the camera
+                        const isVisible = earthToCam.dot(earthToMarker) > -0.1;
+                        
+                        if (!isVisible) {
+                            group.userData.label.style.opacity = '0';
+                        } else {
+                            tempV.project(camera);
+                            const x = (tempV.x * 0.5 + 0.5) * window.innerWidth;
+                            const y = (tempV.y * -0.5 + 0.5) * window.innerHeight;
+                            group.userData.label.style.opacity = '1';
+                            group.userData.label.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+                        }
+                    }
+                }
+            });
+
+            controls.update();
+            composer.render();
+        }
+
+        animate();
+
+    </script>
+</body>
+</html>
