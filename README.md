@@ -9,12 +9,12 @@ desktop app with [Electron](https://www.electronjs.org/).
 
 ## Features
 
-- 🌍 Photorealistic, rotating 3D Earth (Three.js + bloom post-processing)
-- 📍 Click any coordinate to deposit a memory (photo + note)
-- 🔎 Search any place by name and fly the camera to it
-- 🖼️ Circular, draggable gallery to browse memories at a location
-- 💾 **Persistent storage** via IndexedDB — memories survive restarts
-- 🗑️ Delete memories you no longer want
+- Photorealistic, rotating 3D Earth (Three.js + bloom post-processing)
+- Click any coordinate to deposit a memory (photo + note)
+- Search any place by name and fly the camera to it
+- Circular, draggable gallery to browse memories at a location
+- Persistent storage via IndexedDB
+- Delete memories you no longer want
 
 ## Getting started
 
