@@ -1,6 +1,6 @@
 # Global Memories
 
-An interactive 3D memory globe — drop photos and notes onto coordinates on a
+An interactive 3D memory globe that allows user to drop photos and notes onto coordinates on a
 rotating Earth and revisit them in a circular gallery. Packaged as a cross-platform
 desktop app with [Electron](https://www.electronjs.org/).
 
