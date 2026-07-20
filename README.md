@@ -30,7 +30,7 @@ npm run dist    # build a .dmg (macOS) / installer (Windows)
 npm run pack    # build an unpacked app directory (faster, for testing)
 ```
 
-## Project structure
+## Project Structure
 
 ```
 .
