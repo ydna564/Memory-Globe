@@ -37,8 +37,9 @@ npm run pack    # build an unpacked app directory (faster, for testing)
 ├── main.js              # Electron main process (creates the window)
 ├── preload.js           # contextIsolation preload bridge
 ├── package.json         # scripts + electron-builder config
-└── renderer/
-    └── index.html       # the app (Three.js globe + UI + persistence)
+├── renderer/
+│   └── index.html       # the app (Three.js globe + UI + persistence)
+└── build/               # icon sources + generate_icon.py (app icon assets)
 ```
 
 ## Notes
