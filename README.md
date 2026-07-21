@@ -16,6 +16,15 @@ desktop app with [Electron](https://www.electronjs.org/).
 - Persistent storage via IndexedDB
 - Delete memories you no longer want
 
+## Showcase
+
+| | |
+|:---:|:---:|
+| ![The memory globe with pinned locations](docs/screenshots/globe-overview.png) | ![Browsing a location's archive — Tokyo](docs/screenshots/archive-tokyo.png) |
+| **The globe** — pinned memories float above their coordinates | **Archives** — flip through the photos and notes at a location |
+| ![A memory's photo and note — Paris](docs/screenshots/archive-paris.png) | ![Flying the camera to a searched location — New York](docs/screenshots/globe-newyork.png) |
+| **A single memory** — its photo and the note beside it | **Fly to any place** — search a location and the camera travels there |
+
 ## Getting started
 
 ```bash
