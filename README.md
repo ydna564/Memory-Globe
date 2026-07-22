@@ -20,25 +20,25 @@ desktop app with [Electron](https://www.electronjs.org/).
 
 | | |
 |:---:|:---:|
-| ![The memory globe with pinned locations](docs/screenshots/globe-overview.png) | ![Browsing a location's archive — Tokyo](docs/screenshots/archive-tokyo.png) |
-| **The globe** — pinned memories float above their coordinates | **Archives** — flip through the photos and notes at a location |
-| ![A memory's photo and note — Paris](docs/screenshots/archive-paris.png) | ![Flying the camera to a searched location — New York](docs/screenshots/globe-newyork.png) |
-| **A single memory** — its photo and the note beside it | **Fly to any place** — search a location and the camera travels there |
+| ![The memory globe with pinned locations](docs/screenshots/globe-overview.png) | ![Browsing a location's archive, Tokyo](docs/screenshots/archive-tokyo.png) |
+| **The globe.** Pinned memories float above their coordinates | **Archives.** Flip through the photos and notes at a location |
+| ![A memory's photo and note, Paris](docs/screenshots/archive-paris.png) | ![Flying the camera to a searched location, New York](docs/screenshots/globe-newyork.png) |
+| **A single memory.** Its photo and the note beside it | **Fly to any place.** Search a location and the camera travels there |
 
 ## How it works
 
-1. **Drop a memory** — click anywhere on the globe. A ray is cast onto the Earth
+1. **Drop a memory.** Click anywhere on the globe. A ray is cast onto the Earth
    mesh to get the exact latitude/longitude, which is reverse-geocoded into a
    place name (via the BigDataCloud API). Add a photo and a note, and a glowing
    marker is pinned at that coordinate.
-2. **Revisit** — click a marker to open its archive: a circular, draggable
+2. **Revisit.** Click a marker to open its archive, a circular, draggable
    gallery of every memory saved at that spot, each showing the photo and note.
-3. **Fly there** — type a place into the search bar and the camera animates
+3. **Fly there.** Type a place into the search bar and the camera animates
    across the globe to that location.
-4. **Curate** — delete any memory you no longer want to keep.
+4. **Curate.** Delete any memory you no longer want to keep.
 
 Everything you save persists locally in **IndexedDB** (used instead of
-localStorage so large photos don't hit the storage quota), scoped to this app —
+localStorage so large photos don't hit the storage quota), scoped to this app, and
 nothing is uploaded to a server.
 
 The globe itself is a Three.js scene with a day/night Earth, a cloud layer, an
